@@ -1,0 +1,49 @@
+Source Program:
+const z = 4;
+var x, y;
+begin
+if odd z x := y * 2 fi
+end.
+
+Lexeme Table:
+lexeme			token type
+const           	28
+z               	2
+=               	9
+4               	3
+;               	18
+var             	29
+x               	2
+,               	17
+y               	2
+;               	18
+begin           	21
+if              	23
+odd             	1
+z               	2
+x               	2
+:=              	20
+y               	2
+*               	6
+2               	3
+fi              	8
+end             	22
+.               	19
+
+Token List:
+28 2 z 9 3 4 18 29 2 x 17 2 y 18 21 23 1 2 z 2 x 20 2 y 6 3 2 8 22 19 
+
+Assembly Code:
+JMP	0	3
+INC	0	5
+LIT	0	4
+ODD	0	11
+JPC	0	13
+Error: expected 'if' condition 'then'. Got 'if' condition 'x'
+
+Symbol Table:
+Kind	| Name	| Value	| Level	| Address	| Mark	
+--------------------------------------------------
+1			| z			| 4			| 0			| 0				| 1
+2			| x			| 0			| 0			| 3				| 1
+2			| y			| 0			| 0			| 4				| 1

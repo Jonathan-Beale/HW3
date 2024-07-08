@@ -1,0 +1,5 @@
+const z = 4;
+var z, y;
+begin
+x := y * 2;
+end.

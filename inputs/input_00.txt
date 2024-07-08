@@ -1,0 +1,6 @@
+const z = 3;
+var x, y;
+begin
+if odd z then x := z * 2 fi;
+while x < 7 do x := x + 1
+end.

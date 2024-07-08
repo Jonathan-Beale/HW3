@@ -1,0 +1,41 @@
+Source Program:
+const z = 4;
+var x, y
+begin
+x := y * 2;
+end.
+
+Lexeme Table:
+lexeme			token type
+const           	28
+z               	2
+=               	9
+4               	3
+;               	18
+var             	29
+x               	2
+,               	17
+y               	2
+begin           	21
+x               	2
+:=              	20
+y               	2
+*               	6
+2               	3
+;               	18
+end             	22
+.               	19
+
+Token List:
+28 2 z 9 3 4 18 29 2 x 17 2 y 21 2 x 20 2 y 6 3 2 18 22 19 
+
+Assembly Code:
+JMP	0	3
+Error: Expected ';' after var declaration. Got 'begin'
+
+Symbol Table:
+Kind	| Name	| Value	| Level	| Address	| Mark	
+--------------------------------------------------
+1			| z			| 4			| 0			| 0				| 1
+2			| x			| 0			| 0			| 3				| 1
+2			| y			| 0			| 0			| 4				| 1

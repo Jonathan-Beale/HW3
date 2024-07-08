@@ -1,0 +1,76 @@
+Source Program:
+const z = 3;
+var x, y;
+begin
+if odd z then x := z * 2 fi;
+while x < 7 do x := x + 1
+end.
+
+Lexeme Table:
+lexeme			token type
+const           	28
+z               	2
+=               	9
+3               	3
+;               	18
+var             	29
+x               	2
+,               	17
+y               	2
+;               	18
+begin           	21
+if              	23
+odd             	1
+z               	2
+then            	24
+x               	2
+:=              	20
+z               	2
+*               	6
+2               	3
+fi              	8
+;               	18
+while           	25
+x               	2
+<               	11
+7               	3
+do              	26
+x               	2
+:=              	20
+x               	2
++               	4
+1               	3
+end             	22
+.               	19
+
+Token List:
+28 2 z 9 3 3 18 29 2 x 17 2 y 18 21 23 1 2 z 24 2 x 20 2 z 6 3 2 8 18 25 2 x 11 3 7 26 2 x 20 2 x 4 3 1 22 19 
+
+Assembly Code:
+JMP	0	3
+INC	0	5
+LIT	0	3
+ODD	0	11
+JPC	0	13
+LIT	0	3
+LIT	0	2
+MUL	0	3
+STO	0	3
+LOD	0	3
+LIT	0	7
+LSS	0	7
+JPC	0	26
+LOD	0	3
+LIT	0	1
+ADD	0	1
+STO	0	3
+JMP	0	22
+SYS	0	3
+
+
+Symbol Table:
+Kind	| Name	| Value	| Level	| Address	| Mark	
+--------------------------------------------------
+1			| z			| 3			| 0			| 0				| 1
+2			| x			| 0			| 0			| 3				| 1
+2			| y			| 0			| 0			| 4				| 1
