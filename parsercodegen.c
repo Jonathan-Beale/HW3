@@ -29,6 +29,15 @@ typedef struct token {
 token *current_token = NULL;
 
 
+typedef struct assembly {
+    char code[4];
+    int L;
+    int M;
+    struct assembly *next;
+} assembly;
+assembly *assembly_head = NULL;
+int assembly_lines = 0;
+
 // given
 typedef struct {
   int kind;
@@ -54,6 +63,7 @@ void printTokenList(token *head); // no longer needs the input
 
 // New function declarations
 int typeCheck(token_type checktype);
+void syntaxError(const char* errorMessage);
 int findSymbol();
 int addSymbol(int kind, char *name, int value, int mark, int address);
 void printSymTable();
@@ -137,12 +147,10 @@ void appendToken(token **head, token *newToken) {
         *head = newToken;
     } else {
         token *temp = *head;
-        int i = 0;
         while (temp->next != NULL) {
             temp = temp->next;
-            i++;
         }
-        newToken->index = i;
+        newToken->index = temp->index + 1;
         temp->next = newToken;
     }
     
@@ -395,6 +403,12 @@ int findSymbol() {
     return -1;
 }
 
+// Existing function where syntax errors are handled
+void syntaxError(const char* errorMessage) {
+    printf("Syntax Error: %s\n", errorMessage);
+    exit(1); // Exit immediately after printing the error message
+}
+
 // Returns 1 if current_token's type matches check_type
 // otherwise returns 0
 int typeCheck(token_type checktype) {
@@ -405,12 +419,49 @@ int typeCheck(token_type checktype) {
     }
 }
 
+assembly *appendAssembly(char code[4], int L, int M) {
+    assembly *new_assembly = (assembly *)malloc(sizeof(assembly));
+    if (new_assembly == NULL) {
+        fprintf(stderr, "Memory allocation failure.");
+        exit(1);
+    }
+    strncpy(new_assembly->code, code, sizeof(new_assembly->code));
+    new_assembly->L = L;
+    new_assembly->M = M;
+    new_assembly->next = NULL;
+
+    if(assembly_head == NULL) {
+        assembly_lines = 1;
+        assembly_head = new_assembly;
+    } else {
+        assembly *temp = assembly_head;
+        while(temp->next != NULL) {
+            temp = temp->next;
+        }
+        temp->next = new_assembly;
+        assembly_lines += 1;
+    }
+
+    // printf("Added instruction: %s %d %d, Total lines: %d\n", code, L, M, assembly_lines); // Debugging statement
+
+    return new_assembly;
+}
+
+void printAssembly() {
+    printf("Assembly Code:\n");
+
+    assembly *currentLine = assembly_head;
+    while(currentLine != NULL) {
+        printf("%s\t%d\t%d\n", currentLine->code, currentLine->L, currentLine->M);
+        currentLine = currentLine->next;
+    }
+}
+
 // program calls block and ensures following '.'
 // prints beginning and end of the Assembly code
 void program() {
 
-    printf("Assembly Code:\n");
-    printf("JMP\t0\t3\n");
+    appendAssembly("JMP\0", 0, 13);
 
     block();
 
@@ -418,16 +469,15 @@ void program() {
         // program must end in a period
         if (!typeCheck(periodsym)) {
             printf("Error: program should end with a '.' Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
     } else {
         printf("Error: program should end with a '.'\n");
-        printSymTable();
         exit(1);
     }
 
-    printf("SYS\t0\t3\n\n");
+    appendAssembly("SYS\0", 0, 3);
+    printAssembly();
 }
 
 // Detects and sets constants
@@ -440,13 +490,11 @@ void constDeclaration() {
 
         if (!typeCheck(identsym)) {
             printf("Error: Identifier expected after 'const'. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
 
         if (findSymbol() != -1) {
             printf("Error: Duplicate identifier '%s'.\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         token *identToken = current_token;
@@ -454,14 +502,12 @@ void constDeclaration() {
 
         if (!typeCheck(eqlsym)) {
             printf("Error: '=' expected after 'const' Identifier. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
 
         if (!typeCheck(numbersym)) {
             printf("Error: Number expected after 'const' Ident '='. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
 
@@ -471,10 +517,7 @@ void constDeclaration() {
 
     // declaration must end in a semicolon
     if (!typeCheck(semicolonsym)) {
-      printf("Error: ';' expected after declaration. Got "
-             "'%s'\n",
-             current_token->lexeme);
-      printSymTable();
+      printf("Error: ';' expected after declaration. Got '%s'\n", current_token->lexeme);
       exit(1);
     }
     current_token = current_token->next;
@@ -500,7 +543,6 @@ int varDeclaration() {
             }
             if (findSymbol() != -1) {
                 printf("Error: Duplicate identifier '%s'.\n", current_token->lexeme);
-                printSymTable();
                 exit(1);
             }
 
@@ -511,7 +553,6 @@ int varDeclaration() {
         // declaration must end in a semicolon
         if (!typeCheck(semicolonsym)) {
             printf("Error: Expected ';' after var declaration. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
@@ -528,19 +569,18 @@ void factor() {
         int sym_index = findSymbol();
         if (sym_index == -1) {
             printf("Error: Undeclared identifier '%s'.\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         if (symbol_table[sym_index]->kind == 1) { // Constant
-            printf("LIT\t0\t%d\n", symbol_table[sym_index]->val);
+            appendAssembly("LIT\0", 0, symbol_table[sym_index]->val);
 
         } else { // Variable
-            printf("LOD\t0\t%d\n", symbol_table[sym_index]->addr);
+            appendAssembly("LOD\0", 0, symbol_table[sym_index]->addr);
         }
         current_token = current_token->next;
 
     } else if (typeCheck(numbersym)) { // Number
-        printf("LIT\t0\t%s\n", current_token->lexeme);
+        appendAssembly("LIT\0", 0, atoi(current_token->lexeme));
         current_token = current_token->next;
 
 
@@ -548,14 +588,13 @@ void factor() {
         current_token = current_token->next;
         if(typeCheck(rparentsym)) {
             printf("Error: Expected '(Expression)'. Got '()'");
+            exit(1);
         }
 
         expression();
 
         if (!typeCheck(rparentsym)) {
-            printf("Error: ')' expected after '(' {expression}. Got '%s'\n",
-                    current_token->lexeme);
-            printSymTable();
+            printf("Error: ')' expected after '(' {expression}. Got '%s'\n", current_token->lexeme);
             exit(1);
         }
         current_token = current_token->next;
@@ -563,11 +602,9 @@ void factor() {
     } else {
         if (typeCheck(rparentsym)) {
             printf("Error: expression needed '(' {expression} ')'\n");
-            printSymTable();
             exit(1);
         }
         printf("Error: Invalid factor, must start with an Identifier, Number or '('. Got '%s'\n", current_token->lexeme);
-        printSymTable();
         exit(1);
     }
 }
@@ -582,12 +619,12 @@ void term() {
             current_token = current_token->next;
             
             factor();
-            printf("MUL\t0\t3\n");
+            appendAssembly("MUL\0", 0, 3);
         } else {
             current_token = current_token->next;
             
             factor();
-            printf("DIV\t0\t4\n");
+            appendAssembly("DIV\0", 0, 4);
         }
     }
 }
@@ -602,12 +639,12 @@ void expression() {
             current_token = current_token->next;
         
             term();
-            printf("ADD\t0\t1\n");
+            appendAssembly("ADD\0", 0, 1);
         } else {
             current_token = current_token->next;
             
             term();
-            printf("SUB\t0\t2\n");
+            appendAssembly("SUB\0", 0, 2);
         }
     }
 }
@@ -617,36 +654,35 @@ void condition() {
     if (typeCheck(oddsym)) {
         current_token = current_token->next;
         expression();
-        printf("ODD\t0\t11\n");
+        appendAssembly("ODD\0", 0, 11);
     } else {
         expression();
         if (typeCheck(eqlsym)) {
             current_token = current_token->next;
             expression();
-            printf("EQL\t0\t5\n");
+            appendAssembly("EQL\0", 0, 5);
         } else if (typeCheck(neqsym)) {
             current_token = current_token->next;
             expression();
-            printf("NEQ\t0\t6\n");
+            appendAssembly("NEQ\0", 0, 6);
         } else if (typeCheck(lessym)) {
             current_token = current_token->next;
             expression();
-            printf("LSS\t0\t7\n");
+            appendAssembly("LSS\0", 0, 7);
         } else if (typeCheck(leqsym)) {
             current_token = current_token->next;
             expression();
-            printf("LEQ\t0\t8\n");
+            appendAssembly("LEQ\0", 0, 8);
         } else if (typeCheck(gtrsym)) {
             current_token = current_token->next;
             expression();
-            printf("GTR\t0\t9\n");
+            appendAssembly("GTR\0", 0, 9);
         } else if (typeCheck(geqsym)) {
             current_token = current_token->next;
             expression();
-            printf("GEQ\t0\t10\n");
+            appendAssembly("GEQ\0", 0, 10);
         } else {
             printf("Error: Expected an operator. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
     }
@@ -660,12 +696,10 @@ void statement() {
         int sym_index = findSymbol();
         if (sym_index == -1) {
             printf("Error: Undeclared identifier '%s'.\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         if (symbol_table[sym_index]->kind != 2) {
             printf("Error: only variables can be changed by assignment.\n");
-            printSymTable();
             exit(1);
         }
 
@@ -673,14 +707,13 @@ void statement() {
 
         if (!typeCheck(becomessym)) {
             printf("Error: Expected ':=' after identifier. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
 
         current_token = current_token->next;
 
         expression();
-        printf("STO\t0\t%d\n", symbol_table[sym_index]->addr);
+        appendAssembly("STO\0", 0, symbol_table[sym_index]->addr);
         return;
     }
 
@@ -693,7 +726,6 @@ void statement() {
 
         if (!typeCheck(endsym)) {
             printf("Error: Expected 'end' after 'begin' statement. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
@@ -704,20 +736,17 @@ void statement() {
         current_token = current_token->next;
 
         condition();
-        jpc_index = current_token->index;
-        printf("JPC\t0\t%d\n", jpc_index);
+        assembly *jpc_code = appendAssembly("JPC\0", 0, 0);
         if (!typeCheck(thensym)) {
             printf("Error: expected 'if' condition 'then'. Got 'if' condition '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
 
         statement();
-
+        jpc_code->M = (assembly_lines * 3) + 10;
         if (!typeCheck(fisym)) {
             printf("Error: Expected 'if' condition 'then' statement 'fi'. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
@@ -727,21 +756,29 @@ void statement() {
     if (typeCheck(whilesym)) { // looks for "while" condition "do" statement
         current_token = current_token->next;
 
-        int loop_index = current_token->index;
+        int loop_index = assembly_lines;
+        // printf("Start of while loop, loop_index: %d\n", loop_index);
+
         condition();
+        // printf("After condition, assembly_lines: %d\n", assembly_lines);
+
         if (!typeCheck(dosym)) {
             printf("Error: Expected 'do' after 'while'. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
 
-        jpc_index = current_token->index;
-        printf("JPC\t0\t%d\n", jpc_index);
+        assembly *jpc_code = appendAssembly("JPC\0", 0, 0);
+        // printf("Added JPC, assembly_lines: %d\n", assembly_lines);
 
         statement();
+        // printf("After statement, assembly_lines: %d\n", assembly_lines);
 
-        printf("JMP\t0\t%d\n", loop_index);
+        // printf("Updated JPC to line: %d\n", jpc_code->M);
+
+        appendAssembly("JMP\0", 0, (loop_index * 3) + 10);
+        jpc_code->M = (assembly_lines * 3) + 10;
+        // printf("End of while loop, assembly_lines: %d\n", assembly_lines);
         return;
     }
 
@@ -750,25 +787,22 @@ void statement() {
 
         if (!typeCheck(identsym)) {
             printf("Error: Expected an identifier after 'read'. Got '%s'\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         int sym_index = findSymbol();
         if (sym_index == -1) {
             printf("Error: Undeclared identifier '%s'.\n", current_token->lexeme);
-            printSymTable();
             exit(1);
         }
         if (symbol_table[sym_index]->kind != 2) {
             printf("Error: only variables can be read.\n");
-            printSymTable();
             exit(1);
         }
         current_token = current_token->next;
 
 
-        printf("SYS\t0\t3\n");
-        printf("STO\t0\t%d\n", symbol_table[sym_index]->addr);
+        appendAssembly("SYS\0", 0, 3);
+        appendAssembly("STO\0", 0, symbol_table[sym_index]->addr);
         return;
     }
 
@@ -776,9 +810,8 @@ void statement() {
         current_token = current_token->next;
     
         expression();
-        current_token = current_token->next;
 
-        printf("SYS\t0\t2\n");
+        appendAssembly("SYS\0", 0, 2);
         return;
     }
 }
@@ -787,6 +820,6 @@ void statement() {
 void block() {
     constDeclaration();
     int numVars = varDeclaration();
-    printf("INC\t0\t%d\n", numVars + 3);
+    appendAssembly("INC\0", 0, numVars + 3);
     statement();
 }
